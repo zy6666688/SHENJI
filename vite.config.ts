@@ -29,14 +29,5 @@ export default defineConfig({
   
   define: {
     'process.env': {}
-  },
-  
-  optimizeDeps: {
-    include: [
-      'vue',
-      'pinia',
-      '@dcloudio/uni-app',
-      '@dcloudio/uni-h5'
-    ]
   }
 });
