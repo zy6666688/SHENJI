@@ -47,7 +47,7 @@ function responseInterceptor(response: any) {
 
   // 权限不足
   if (code === 403) {
-    PlatformAdapter.showToast({ title: '权限不足', icon: 'none' });
+    PlatformAdapter.showToast('权限不足', 'none');
     throw new Error('权限不足');
   }
 
@@ -71,7 +71,7 @@ function handleError(error: any) {
     message = '服务暂不可用';
   }
 
-  PlatformAdapter.showToast({ title: message, icon: 'none' });
+  PlatformAdapter.showToast(message, 'none');
 
   throw error;
 }
@@ -114,7 +114,8 @@ export async function request<T = any>(options: {
     // 响应拦截
     return responseInterceptor(response);
   } catch (error) {
-    return handleError(error);
+    handleError(error);
+    throw error; // handleError会抛出错误，这行代码实际不会执行
   }
 }
 
@@ -170,7 +171,8 @@ export async function uploadFile(filePath: string, options?: {
     const data = JSON.parse(result.data);
     return responseInterceptor({ data });
   } catch (error) {
-    return handleError(error);
+    handleError(error);
+    throw error;
   }
 }
 
