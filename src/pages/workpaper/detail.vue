@@ -197,9 +197,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import NodeCanvas from '@/components/workpaper/NodeCanvas.vue';
+import { autoSaveManager } from '@/utils/autoSave';
+import { aiService } from '@/services/ai';
+import { hierarchicalLayout, gridLayout, alignToGrid } from '@/utils/autoLayout';
+import { updateWorkpaper } from '@/api/workpaper';
 
 // 页面参数
 const workpaperId = ref('');
@@ -366,24 +370,72 @@ const handleAddNode = () => {
 };
 
 const handleAutoLayout = () => {
-  uni.showToast({ title: '自动布局', icon: 'none' });
-  // TODO: 实现自动布局算法
+  try {
+    // 使用层次布局算法
+    const layoutNodes = hierarchicalLayout(nodes.value, connections.value);
+    
+    // 更新节点位置
+    nodes.value = layoutNodes;
+    
+    uni.showToast({ title: '自动布局完成', icon: 'success' });
+  } catch (error) {
+    console.error('自动布局失败:', error);
+    uni.showToast({ title: '自动布局失败', icon: 'error' });
+  }
 };
 
-const handleAIAnalyze = () => {
-  uni.showToast({ title: 'AI分析中...', icon: 'loading' });
-  // TODO: 调用AI分析接口
+const handleAIAnalyze = async () => {
+  try {
+    uni.showLoading({ title: 'AI分析中...' });
+    
+    // 分析整个工作流
+    const result = await aiService.analyzeWorkflow(
+      workpaperId.value,
+      nodes.value,
+      connections.value
+    );
+    
+    uni.hideLoading();
+    
+    // 显示分析结果
+    uni.showModal({
+      title: '工作流分析完成',
+      content: `整体风险: ${result.overallRisk}\n评分: ${result.overallScore}\n${result.summary}`,
+      showCancel: false
+    });
+  } catch (error) {
+    uni.hideLoading();
+    console.error('AI分析失败:', error);
+    uni.showToast({ 
+      title: 'AI分析失败，请稍后重试', 
+      icon: 'none' 
+    });
+  }
 };
 
 const handleSave = async () => {
   try {
-    uni.showToast({ title: '保存中...', icon: 'loading' });
-    // TODO: 保存底稿数据
-    setTimeout(() => {
-      uni.showToast({ title: '保存成功', icon: 'success' });
-    }, 1000);
+    const saveData = {
+      nodes: nodes.value,
+      connections: connections.value,
+      metadata: {
+        version: Date.now(),
+        lastModified: new Date().toISOString(),
+        autoSaved: false
+      }
+    };
+    
+    await autoSaveManager.debounceSave(
+      workpaperId.value,
+      saveData,
+      async (id, data) => {
+        await updateWorkpaper(id, data);
+      },
+      { immediate: true, showToast: true }
+    );
   } catch (error) {
-    uni.showToast({ title: '保存失败', icon: 'none' });
+    console.error('保存失败:', error);
+    uni.showToast({ title: '保存失败', icon: 'error' });
   }
 };
 
@@ -449,11 +501,44 @@ const handleCanvasClick = () => {
   selectedNodeId.value = '';
 };
 
-const handleNodeAIAnalyze = () => {
+const handleNodeAIAnalyze = async () => {
   if (!selectedNode.value) return;
   
-  uni.showToast({ title: 'AI分析中...', icon: 'loading' });
-  // TODO: 调用AI分析接口
+  try {
+    uni.showLoading({ title: 'AI分析中...' });
+    
+    // 构建分析上下文
+    const context = {
+      nodeType: selectedNode.value.type,
+      nodeTitle: selectedNode.value.data.title,
+      content: selectedNode.value.data.content,
+      relatedNodes: getRelatedNodes(selectedNode.value.id),
+      projectInfo: {
+        name: workpaper.value.title,
+        industry: '通用',
+        auditType: '内部审计'
+      }
+    };
+    
+    // 调用AI分析
+    const result = await aiService.analyzeNode(
+      selectedNode.value.id,
+      context
+    );
+    
+    // 更新节点的AI分析结果
+    selectedNode.value.aiAnalysis = result;
+    
+    uni.hideLoading();
+    uni.showToast({ title: 'AI分析完成', icon: 'success' });
+  } catch (error) {
+    uni.hideLoading();
+    console.error('节点AI分析失败:', error);
+    uni.showToast({ 
+      title: 'AI分析失败，请稍后重试', 
+      icon: 'none' 
+    });
+  }
 };
 
 // 缩放控制
@@ -473,6 +558,72 @@ const getNodeTypeName = (type: string) => {
   const node = allNodeTypes.value.find(n => n.type === type);
   return node ? node.name : type;
 };
+
+// 获取相关节点
+const getRelatedNodes = (nodeId: string) => {
+  const related: any[] = [];
+  
+  // 获取输入节点
+  connections.value
+    .filter(conn => conn.to === nodeId)
+    .forEach(conn => {
+      const node = nodes.value.find(n => n.id === conn.from);
+      if (node) {
+        related.push({
+          id: node.id,
+          type: node.type,
+          title: node.data.title,
+          content: node.data.content
+        });
+      }
+    });
+  
+  // 获取输出节点
+  connections.value
+    .filter(conn => conn.from === nodeId)
+    .forEach(conn => {
+      const node = nodes.value.find(n => n.id === conn.to);
+      if (node) {
+        related.push({
+          id: node.id,
+          type: node.type,
+          title: node.data.title,
+          content: node.data.content
+        });
+      }
+    });
+  
+  return related;
+};
+
+// 自动保存（监听数据变化）
+watch([nodes, connections], () => {
+  if (!workpaperId.value) return;
+  
+  const saveData = {
+    nodes: nodes.value,
+    connections: connections.value,
+    metadata: {
+      version: Date.now(),
+      lastModified: new Date().toISOString(),
+      autoSaved: true
+    }
+  };
+  
+  autoSaveManager.debounceSave(
+    workpaperId.value,
+    saveData,
+    async (id, data) => {
+      await updateWorkpaper(id, data);
+    },
+    { immediate: false, showToast: false }
+  );
+}, { deep: true });
+
+// 页面卸载时清理
+onUnmounted(() => {
+  autoSaveManager.clearTimer();
+});
 </script>
 
 <style lang="scss" scoped>
