@@ -151,8 +151,10 @@ describe('ExecutionHistory', () => {
       workflow.nodes.push({
         id: 'node1',
         type: 'input',
-        name: 'Input Node',
+        label: 'Input Node',
         position: { x: 0, y: 0 },
+        config: {},
+        inputs: {},
       });
       
       const record = await storage.createExecution(workflow, { type: 'manual' });
@@ -183,8 +185,10 @@ describe('ExecutionHistory', () => {
       workflow.nodes.push({
         id: 'node1',
         type: 'input',
-        name: 'Input Node',
+        label: 'Input Node',
         position: { x: 0, y: 0 },
+        config: {},
+        inputs: {},
       });
       
       const record = await storage.createExecution(workflow, { type: 'manual' });
@@ -216,9 +220,9 @@ describe('ExecutionHistory', () => {
     it('should track node statistics', async () => {
       const workflow = WorkflowHelper.createNew('Test Workflow');
       workflow.nodes.push(
-        { id: 'node1', type: 'input', name: 'Node 1', position: { x: 0, y: 0 } },
-        { id: 'node2', type: 'process', name: 'Node 2', position: { x: 100, y: 0 } },
-        { id: 'node3', type: 'output', name: 'Node 3', position: { x: 200, y: 0 } }
+        { id: 'node1', type: 'input', label: 'Node 1', position: { x: 0, y: 0 }, config: {}, inputs: {} },
+        { id: 'node2', type: 'process', label: 'Node 2', position: { x: 100, y: 0 }, config: {}, inputs: {} },
+        { id: 'node3', type: 'output', label: 'Node 3', position: { x: 200, y: 0 }, config: {}, inputs: {} }
       );
       
       const record = await storage.createExecution(workflow, { type: 'manual' });
