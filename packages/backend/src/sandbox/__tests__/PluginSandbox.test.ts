@@ -37,7 +37,7 @@ describe('PluginSandbox', () => {
     expect(result.output.summary.validCount).toBe(2);
   });
   
-  it('应该拒绝包含危险关键字的代码', () => {
+  it('应该拒绝包含危险关键字的代码', async () => {
     const dangerousCode = `
       const fs = require('fs');
       fs.readFileSync('/etc/passwd');
@@ -48,9 +48,9 @@ describe('PluginSandbox', () => {
       dangerousCode
     );
     
-    expect(async () => {
-      await dangerousSandbox.execute({}, 'test-user');
-    }).rejects.toThrow('Code security check failed');
+    await expect(
+      dangerousSandbox.execute({}, 'test-user')
+    ).rejects.toThrow('Code security check failed');
   });
   
   it('应该强制执行超时限制', async () => {

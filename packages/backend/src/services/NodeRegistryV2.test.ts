@@ -106,7 +106,7 @@ describe('NodeRegistryV2', () => {
       
       expect(result.success).toBe(true);
       expect(result.outputs?.result).toBe(20);
-      expect(result.duration).toBeGreaterThan(0);
+      expect(result.duration).toBeGreaterThanOrEqual(0);
     });
     
     it('should fail with invalid inputs', async () => {

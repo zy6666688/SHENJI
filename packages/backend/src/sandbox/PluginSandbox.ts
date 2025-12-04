@@ -183,48 +183,31 @@ export class PluginSandbox extends EventEmitter {
       throw new Error(`Code security check failed: ${violations.join(', ')}`);
     }
     
-    // 创建受限的全局对象
-    const sandboxGlobals = {
-      console: {
-        log: (...args: any[]) => this.emit('log', ...args),
-        warn: (...args: any[]) => this.emit('warn', ...args),
-        error: (...args: any[]) => this.emit('error', ...args)
-      },
-      Math,
-      Date,
-      JSON,
-      Array,
-      Object,
-      String,
-      Number,
-      Boolean,
-      // 提供受控的API
-      api: this.createSandboxAPI()
-    };
-    
+    // 直接返回插件代码的IIFE，前面设置环境变量
     return `
-      (function(sandbox) {
-        'use strict';
-        
-        // 覆盖危险的全局对象
-        const window = undefined;
-        const document = undefined;
-        const global = undefined;
-        const process = undefined;
-        const require = undefined;
-        const module = undefined;
-        const exports = undefined;
-        
-        // 提供沙箱全局对象
-        const console = sandbox.console;
-        const api = sandbox.api;
-        
-        // 输入数据
-        const inputs = ${JSON.stringify(inputs)};
-        
-        // 插件代码
-        ${this.code}
-      })(${JSON.stringify(sandboxGlobals)});
+'use strict';
+
+// 覆盖危险的全局对象
+const window = undefined;
+const document = undefined;
+const global = undefined;
+const process = undefined;
+const require = undefined;
+const module = undefined;
+const exports = undefined;
+
+// 提供沙箱全局对象
+const console = {
+  log: function(...args) {},
+  warn: function(...args) {},
+  error: function(...args) {}
+};
+
+// 输入数据
+const inputs = ${JSON.stringify(inputs)};
+
+// 执行插件代码并返回结果
+${this.code}
     `;
   }
   
@@ -284,15 +267,15 @@ export class PluginSandbox extends EventEmitter {
       }
     };
     
+    // 安全检查（在try-catch之外，让安全错误直接抛出）
+    const wrappedCode = this.wrapCode(inputs);
+    
     try {
       // 检查配额
       const quotaCheck = this.usageTracker.checkQuota(this.metadata.quota);
       if (!quotaCheck.allowed) {
         throw new Error(`Quota exceeded: ${quotaCheck.reason}`);
       }
-      
-      // 包装代码
-      const wrappedCode = this.wrapCode(inputs);
       
       // 使用 VM 模块执行（Node.js环境）
       // 注意：浏览器环境需要使用 iframe 或 Web Workers
@@ -304,7 +287,7 @@ export class PluginSandbox extends EventEmitter {
       // 设置超时
       const timeout = this.metadata.quota.maxExecutionTime;
       
-      // 执行代码
+      // 执行代码并捕获返回值
       const result = vm.runInContext(wrappedCode, sandbox, {
         timeout,
         displayErrors: true
@@ -404,8 +387,15 @@ export class UsageTracker {
   }
   
   checkQuota(quota: PluginQuota): { allowed: boolean; reason?: string } {
-    // 检查网络请求配额
-    if (this.networkRequests >= quota.maxNetworkRequests) {
+    // 检查网络请求配额（如果允许的数量为0，则表示不允许任何请求）
+    if (quota.maxNetworkRequests === 0 && this.networkRequests > 0) {
+      return {
+        allowed: false,
+        reason: `Network requests not allowed`
+      };
+    }
+    
+    if (quota.maxNetworkRequests > 0 && this.networkRequests > quota.maxNetworkRequests) {
       return {
         allowed: false,
         reason: `Network request limit exceeded: ${quota.maxNetworkRequests}`
