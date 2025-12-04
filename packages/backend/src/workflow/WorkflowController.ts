@@ -183,7 +183,7 @@ export class WorkflowController {
       if (!validationResult.valid) {
         res.status(400).json(
           ResponseFormatter.error(
-            ErrorCode.VALIDATION_ERROR,
+            ErrorCode.INVALID_PARAMS,
             'Workflow validation failed',
             {
               errors: validationResult.errors,
