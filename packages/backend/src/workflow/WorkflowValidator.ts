@@ -613,6 +613,12 @@ export class WorkflowValidator {
       return 0;
     }
     
+    // 如果有循环依赖，无法计算深度
+    const cycles = this.detectCycles(nodes, edges);
+    if (cycles.length > 0) {
+      return 0; // 有循环时返回0
+    }
+    
     // 构建邻接表
     const adjacency = new Map<string, string[]>();
     for (const node of nodes) {
@@ -627,17 +633,26 @@ export class WorkflowValidator {
       }
     }
     
-    // 使用记忆化DFS计算最长路径
+    // 使用记忆化DFS计算最长路径（DAG保证无环）
     const memo = new Map<string, number>();
+    const visiting = new Set<string>();
     
     const dfs = (nodeId: string): number => {
       if (memo.has(nodeId)) {
         return memo.get(nodeId)!;
       }
       
+      // 防止无限递归（虽然已经检测过循环）
+      if (visiting.has(nodeId)) {
+        return 0;
+      }
+      
+      visiting.add(nodeId);
+      
       const neighbors = adjacency.get(nodeId) || [];
       if (neighbors.length === 0) {
         memo.set(nodeId, 1);
+        visiting.delete(nodeId);
         return 1;
       }
       
@@ -648,12 +663,15 @@ export class WorkflowValidator {
       
       const depth = 1 + maxChildDepth;
       memo.set(nodeId, depth);
+      visiting.delete(nodeId);
       return depth;
     };
     
     let maxDepth = 0;
     for (const node of nodes) {
-      maxDepth = Math.max(maxDepth, dfs(node.id));
+      if (!memo.has(node.id)) {
+        maxDepth = Math.max(maxDepth, dfs(node.id));
+      }
     }
     
     return maxDepth;
