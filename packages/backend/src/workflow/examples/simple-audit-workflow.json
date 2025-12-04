@@ -1,0 +1,152 @@
+{
+  "id": "workflow_example_001",
+  "name": "简单审计工作流示例",
+  "version": {
+    "version": "1.0.0",
+    "changelog": "初始版本",
+    "isDraft": false
+  },
+  "description": "一个简单的审计工作流示例，演示固定资产盘点流程",
+  "author": "SHENJI Team",
+  "createdAt": "2025-01-04T04:15:00.000Z",
+  "updatedAt": "2025-01-04T04:15:00.000Z",
+  
+  "nodes": [
+    {
+      "id": "node_input_001",
+      "type": "fixed-asset-inventory",
+      "label": "固定资产盘点",
+      "description": "导入固定资产清单和盘点记录",
+      "position": {
+        "x": 100,
+        "y": 100
+      },
+      "config": {
+        "toleranceRate": 0.02,
+        "allowSelfService": true,
+        "requirePhotos": true
+      },
+      "inputs": {},
+      "enabled": true,
+      "color": "#4CAF50",
+      "icon": "inventory"
+    },
+    {
+      "id": "node_confirm_001",
+      "type": "accounts-receivable-confirmation",
+      "label": "应收账款函证",
+      "description": "对应收账款进行函证",
+      "position": {
+        "x": 400,
+        "y": 100
+      },
+      "config": {
+        "confirmationRatio": 1.0,
+        "materialityAmount": 100000,
+        "sendElectronic": false
+      },
+      "inputs": {
+        "relatedData": {
+          "from": "node_input_001",
+          "output": "workpaper"
+        }
+      },
+      "enabled": true,
+      "color": "#2196F3",
+      "icon": "mail"
+    },
+    {
+      "id": "node_report_001",
+      "type": "report-generator",
+      "label": "生成审计报告",
+      "description": "汇总所有审计结果，生成最终报告",
+      "position": {
+        "x": 700,
+        "y": 100
+      },
+      "config": {
+        "format": "pdf",
+        "includeCharts": true,
+        "language": "zh-CN"
+      },
+      "inputs": {
+        "inventoryResult": {
+          "from": "node_input_001",
+          "output": "summary"
+        },
+        "confirmationResult": {
+          "from": "node_confirm_001",
+          "output": "summary"
+        }
+      },
+      "enabled": true,
+      "color": "#FF9800",
+      "icon": "description"
+    }
+  ],
+  
+  "edges": [
+    {
+      "id": "edge_001",
+      "source": "node_input_001",
+      "sourceOutput": "workpaper",
+      "target": "node_confirm_001",
+      "targetInput": "relatedData",
+      "label": "审计底稿",
+      "type": "data",
+      "enabled": true
+    },
+    {
+      "id": "edge_002",
+      "source": "node_input_001",
+      "sourceOutput": "summary",
+      "target": "node_report_001",
+      "targetInput": "inventoryResult",
+      "label": "盘点结果",
+      "type": "data",
+      "enabled": true
+    },
+    {
+      "id": "edge_003",
+      "source": "node_confirm_001",
+      "sourceOutput": "summary",
+      "target": "node_report_001",
+      "targetInput": "confirmationResult",
+      "label": "函证结果",
+      "type": "data",
+      "enabled": true
+    }
+  ],
+  
+  "settings": {
+    "maxConcurrency": 3,
+    "timeout": 600000,
+    "retryPolicy": {
+      "maxRetries": 2,
+      "backoff": "exponential",
+      "initialDelay": 1000,
+      "maxDelay": 10000,
+      "retryableErrors": ["TIMEOUT", "NETWORK_ERROR"]
+    },
+    "enableCache": true,
+    "cacheTTL": 3600000,
+    "errorHandling": "stop",
+    "verboseLogging": true,
+    "enableCheckpoint": true,
+    "checkpointInterval": 1
+  },
+  
+  "metadata": {
+    "tags": ["审计", "资产盘点", "应收账款"],
+    "category": "资产循环",
+    "isPublic": true,
+    "usageCount": 0,
+    "custom": {
+      "difficulty": "beginner",
+      "estimatedTime": "30分钟"
+    }
+  },
+  
+  "status": "active",
+  "isPublished": true
+}
