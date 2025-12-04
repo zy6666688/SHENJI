@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "test:integration": "tsx src/scripts/test-integration.ts",
     "docs": "typedoc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
