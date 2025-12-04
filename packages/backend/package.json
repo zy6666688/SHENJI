@@ -5,8 +5,10 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec tsx src/index.ts",
+    "dev:v2": "nodemon --exec tsx src/index.v2.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:v2": "node dist/index.v2.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
